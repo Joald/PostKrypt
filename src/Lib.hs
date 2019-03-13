@@ -48,12 +48,16 @@ instance Mon Transform where
   m1 = Trans (Vec (0, 0), 0)
   Trans (Vec (x1, y1), a1) >< Trans (Vec (x2, y2), a2) = Trans (Vec (x1 + x2, y1 + y2), (a1 + a2) `mod'` 360)
 
--- | Helper functions that are not part of the solution.
+-- | Helper functions that are not directly part of the solution.
 pmap :: (a -> b) -> (a, a) -> (b, b)
 pmap f (x, y) = (f x, f y)
 
 lift :: (b -> b -> c) -> (a -> b) -> a -> a -> c
 lift f g x1 x2 = f (g x1) (g x2)
+
+getEither :: Either a a -> a
+getEither (Left x)  = x
+getEither (Right x) = x
 
 -- | Functions that are part of the solution
 vec :: R2 -> Vec
@@ -69,10 +73,10 @@ line x y = [(point x, point y)]
 -- prostokąt o podanej szerokości i wysokości zaczepiony w (0,0)
 rectangle :: R -> R -> Picture
 rectangle w h =
-  [ (point (0, 0), point (0, w))
-  , (point (0, w), point (w, w))
-  , (point (w, w), point (w, 0))
-  , (point (w, 0), point (0, 0))
+  [ (point (0, 0), point (w, 0))
+  , (point (w, 0), point (w, h))
+  , (point (w, h), point (0, h))
+  , (point (0, h), point (0, 0))
   ]
 
 (&) :: Picture -> Picture -> Picture
