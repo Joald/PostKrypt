@@ -50,11 +50,9 @@ newtype Vec = Vec
   { getVec :: R2
   } deriving (Show, Eq)
 
-data Transform
-  = Trans Vec
-  | Rot R
-  | TCompose (NE.NonEmpty Transform)
-  deriving (Show, Eq)
+newtype Transform = Transform { getList :: [BaseTransform] } deriving (Show, Eq)
+
+data BaseTransform = Rot R | Trans Vec deriving (Show, Eq)
 
 type Line = (R2, R2)
 
@@ -77,12 +75,12 @@ instance Mon Vec where
 (+++) :: NonEmpty a -> [a] -> NonEmpty a
 (x :| xs) +++ y = x :| (xs ++ y)
 
-simplifyTransformList :: NonEmpty Transform -> NonEmpty Transform
+simplifyTransformList :: [BaseTransform] -> [BaseTransform]
 simplifyTransformList trl
-  | Trans v1 :| Trans v2:rest <- trl = simplifyTransformList $ (Trans $ v1 >< v2) :| rest
-  | Rot a1 :| Rot a2:rest <- trl = simplifyTransformList $ (Rot $ a1 + a2) :| rest
-  | TCompose t1 :| rest <- trl = simplifyTransformList $ t1 +++ rest
-  | x1 :| x2:xs <- trl = x1 <| simplifyTransformList (x2 :| xs)
+  | x : xs <- trl, isIdentity x = simplifyTransformList xs
+  | Trans v1 : Trans v2 : rest <- trl = simplifyTransformList $ (Trans $ v1 >< v2) : rest
+  | Rot a1 : Rot a2 : rest <- trl = simplifyTransformList $ (Rot $ (a1 + a2) `mod'` 360) : rest
+  | x1 : xs <- trl = x1 : simplifyTransformList xs
   | otherwise = trl
 
 fix :: Eq a => (a -> a) -> a -> a
@@ -93,25 +91,16 @@ fix f x =
   where
     y = f x
 
-simplifyTransform :: Transform -> Transform
-simplifyTransform tr
-  | TCompose xs <- tr =
-    let res = fix simplifyTransformList xs
-     in if length res == 1
-          then NE.head res
-          else TCompose res
-  | otherwise = tr
-
 instance Mon Transform where
-  m1 = Trans (Vec (0, 0))
-  x >< y
-    | x == m1 = y
-    | x == Rot fullCircle = y
-    | y == m1 = x
-    | y == Rot fullCircle = x
-    | otherwise = simplifyTransform $ TCompose $ x :| [y]
+  m1 = Transform []
+  x >< y = Transform $ fix simplifyTransformList $ getList x ++ getList y
 
 -- | Helper functions that are not directly part of the solution.
+isIdentity :: BaseTransform -> Bool
+isIdentity t
+  | Rot x <- t = x == 0
+  | Trans c <- t = c == Vec (0, 0)
+
 pmap :: (a -> b) -> (a, a) -> (b, b)
 pmap f (x, y) = (f x, f y)
 
@@ -119,17 +108,12 @@ applyBoth :: (b -> b -> c) -> (a -> b) -> a -> a -> c
 applyBoth f g x1 x2 = f (g x1) (g x2)
 
 sin :: Rational -> Rational
-sin x' = (4 * x * (180 - x)) / (40500 - x * (180 - x))
+sin x' = (4 * x * (180 - x)) / (40500 - x * (180 - x)) * (-signum (x `mod'` 360 - 180))
   where
-    x = x' `mod'` 360
+    x = x' `mod'` 180
 
 cos :: Rational -> Rational
 cos = sin . (90 +)
-
-trR2 :: Transform -> R2 -> R2
-trR2 (Trans (Vec (x, y))) (px, py) = (x + px, y + py)
-trR2 (TCompose ts) p               = foldl (flip trR2) p (NE.toList ts)
-trR2 (Rot a) p                     = _doRotate a p
 
 _doRotate :: R -> R2 -> R2
 _doRotate a ~(x, y) = (x * c - y * s, x * s + y * c)
@@ -137,10 +121,21 @@ _doRotate a ~(x, y) = (x * c - y * s, x * s + y * c)
     c = cos a
     s = sin a
 
-toAngle :: Transform -> R
+trBaseR2 :: BaseTransform -> R2 -> R2
+trBaseR2 (Trans (Vec (x, y))) (px, py) = (x + px, y + py)
+trBaseR2 (Rot a) p                     = _doRotate a p
+
+trR2 :: Transform -> R2 -> R2
+trR2 t p = foldl (flip trBaseR2) p $ getList t
+
+
+toAngle :: BaseTransform -> R
 toAngle t
   | Rot a <- t = a
   | otherwise = 0
+
+makeTransform :: BaseTransform -> Transform
+makeTransform = Transform . (:[])
 
 -- | Functions that are part of the solution
 vec :: R2 -> Vec
@@ -165,10 +160,10 @@ renderScaled x p = _render $ _scale x (getLineList p)
     _render = map $ pmap $ pmap round
 
 translate :: Vec -> Transform
-translate = Trans
+translate = makeTransform . Trans
 
 rotate :: R -> Transform
-rotate = Rot . (`mod'` 360)
+rotate = makeTransform . Rot . (`mod'` 360)
 
 fullCircle :: R
 fullCircle = 0
@@ -177,10 +172,7 @@ trpoint :: Transform -> Point -> Point
 trpoint t = point . trR2 t . getCoords
 
 trvec :: Transform -> Vec -> Vec
-trvec t v
-  | Trans _ <- t = v
-  | Rot a <- t = Vec $ _doRotate a $ getVec v
-  | TCompose l <- t = trvec (Rot (foldr ((+) . toAngle) 0 l)) v
+trvec t v = Vec $ trBaseR2 (Rot $ foldr ((+) . toAngle) 0 $ getList t) $ getVec v
 
 transform :: Transform -> Picture -> Picture
 transform tr p = Picture $ map (pmap $ trR2 tr) (getLineList p)
