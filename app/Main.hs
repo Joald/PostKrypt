@@ -69,23 +69,28 @@ processLexeme :: String -> PictureState -> Maybe PictureState
 processLexeme l state
   | l == "moveto", y:x:xs <- stack = Just
     $ updateStack xs
-    $ updatePathStart (Just (x, y))
-    $ updateCurPoint (Just (x, y)) state
+    $ updatePathStart (Just $ trR2 transforms (x, y))
+    $ updateCurPoint (Just $ trR2 transforms (x, y)) state
+
   | l == "lineto", y:x:xs <- stack, Just cPoint <- currentPoint = Just
     $ updateStack xs
-    $ updatePic (pmap (trR2 transforms) (cPoint, (x, y)) : pic)
-    $ updateCurPoint (Just (x, y)) state
-  | l == "closepath", Just start <- pathStart, Just cPoint <- currentPoint = Just
+    $ updatePic ((cPoint, trR2 transforms(x, y)) : pic)
+    $ updateCurPoint (Just $ trR2 transforms (x, y)) state
+
+  | l == "closepath", Just start <- pathStart, Just cPoint <- currentPoint, start /= cPoint = Just
     $ updatePic (pmap (trR2 transforms) (cPoint, start) : pic)
     $ updateCurPoint (Just start) state
   | l == "closepath" = Just state
+
   | l == "translate", y:x:xs <- stack = Just
     $ updateStack xs
     $ updateTrans (translate (vec (x, y)) >< transforms) state
+
   | l == "rotate", x:xs <- stack = Just
     $ updateStack xs
     $ updateTrans (rotate x >< transforms) state
-  | l == "add", x1:x2:xs <- stack = Just $ updateStack (x1 + x2 : xs) state
+
+  | l == "add", x1:x2:xs <- stack = Just $ updateStack (x2 + x1 : xs) state
   | l == "sub", x1:x2:xs <- stack = Just $ updateStack (x2 - x1 : xs) state
   | l == "mul", x1:x2:xs <- stack = Just $ updateStack (x2 * x1 : xs) state
   | l == "div", x1:x2:xs <- stack, x1 /= 0 = Just $ updateStack (x2 / x1 : xs) state
