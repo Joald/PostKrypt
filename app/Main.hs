@@ -30,6 +30,11 @@ showPicture = concatMap pointToPostScript
 addProEpi :: String -> String
 addProEpi x = prologue ++ x ++ epilogue
 
+-- Custom lens implementation
+
+--type Lens' a b = forall f . Functor f => (b -> f b) -> (a -> f a)
+--x = runQ
+
 -- Functions used by part C
 errorMessage = "/Courier findfont 24 scalefont setfont 0 0 moveto (Error) show\n"
 
@@ -44,21 +49,6 @@ data PictureState = PictureState
   , curPoint  :: Maybe R2
   }
 
-updateStack :: [R] -> PictureState -> PictureState
-updateStack newStack state = passToAll PictureState state (const newStack) pic pathStart trans curPoint
-
-updatePic :: [Line] -> PictureState -> PictureState
-updatePic newPic state = passToAll PictureState state stack (const newPic) pathStart trans curPoint
-
-updatePathStart :: Maybe R2 -> PictureState -> PictureState
-updatePathStart newPathStart state = passToAll PictureState state stack pic (const newPathStart) trans curPoint
-
-updateTrans :: Transform -> PictureState -> PictureState
-updateTrans newTransform state = passToAll PictureState state stack pic pathStart (const newTransform) curPoint
-
-updateCurPoint :: Maybe R2 -> PictureState -> PictureState
-updateCurPoint newCurPoint state = passToAll PictureState state stack pic pathStart trans (const newCurPoint)
-
 startState :: PictureState
 startState = PictureState [] [] Nothing m1 Nothing
 
@@ -67,34 +57,34 @@ parsePicture l = Picture . reverse . pic <$> foldl (\s el -> s >>= processLexeme
 
 processLexeme :: String -> PictureState -> Maybe PictureState
 processLexeme l state
-  | l == "moveto", y:x:xs <- stack = Just
-    $ updateStack xs
-    $ updatePathStart (Just $ trR2 transforms (x, y))
-    $ updateCurPoint (Just $ trR2 transforms (x, y)) state
-
-  | l == "lineto", y:x:xs <- stack, Just cPoint <- currentPoint = Just
-    $ updateStack xs
-    $ updatePic ((cPoint, trR2 transforms(x, y)) : pic)
-    $ updateCurPoint (Just $ trR2 transforms (x, y)) state
-
-  | l == "closepath", Just start <- pathStart, Just cPoint <- currentPoint, start /= cPoint = Just
-    $ updatePic (pmap (trR2 transforms) (cPoint, start) : pic)
-    $ updateCurPoint (Just start) state
+  | l == "moveto", y:x:xs <- stack = Just $ state {
+    stack = xs,
+    pathStart = Just $ trR2 transforms (x, y),
+    curPoint = Just $ trR2 transforms (x, y)
+  }
+  | l == "lineto", y:x:xs <- stack, Just cPoint <- currentPoint = Just $ state {
+    stack = xs,
+    pic = (cPoint, trR2 transforms (x, y)) : pic,
+    curPoint = Just $ trR2 transforms (x, y)
+  }
+  | l == "closepath", Just start <- pathStart, Just cPoint <- currentPoint, start /= cPoint = Just $ state {
+    pic = pmap (trR2 transforms) (cPoint, start) : pic,
+    curPoint = Just start
+  }
   | l == "closepath" = Just state
-
-  | l == "translate", y:x:xs <- stack = Just
-    $ updateStack xs
-    $ updateTrans (translate (vec (x, y)) >< transforms) state
-
-  | l == "rotate", x:xs <- stack = Just
-    $ updateStack xs
-    $ updateTrans (rotate x >< transforms) state
-
-  | l == "add", x1:x2:xs <- stack = Just $ updateStack (x2 + x1 : xs) state
-  | l == "sub", x1:x2:xs <- stack = Just $ updateStack (x2 - x1 : xs) state
-  | l == "mul", x1:x2:xs <- stack = Just $ updateStack (x2 * x1 : xs) state
-  | l == "div", x1:x2:xs <- stack, x1 /= 0 = Just $ updateStack (x2 / x1 : xs) state
-  | Just x <- readMaybe l :: Maybe Int = Just $ updateStack (fromIntegral x : stack) state
+  | l == "translate", y:x:xs <- stack = Just $ state {
+    stack = xs,
+    trans = translate (vec (x, y)) >< transforms
+  }
+  | l == "rotate", x:xs <- stack = Just $ state {
+    stack = xs,
+    trans = rotate x >< transforms
+  }
+  | l == "add", x1:x2:xs <- stack = Just $ state { stack = x2 + x1 : xs }
+  | l == "sub", x1:x2:xs <- stack = Just $ state { stack = x2 - x1 : xs }
+  | l == "mul", x1:x2:xs <- stack = Just $ state { stack = x2 * x1 : xs }
+  | l == "div", x1:x2:xs <- stack, x1 /= 0 = Just $ state { stack = x2 / x1 : xs }
+  | Just x <- readMaybe l :: Maybe Int = Just $ state { stack = fromIntegral x : stack }
   | otherwise = Nothing
   where
     PictureState stack pic pathStart transforms currentPoint = state
