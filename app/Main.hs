@@ -76,6 +76,12 @@ processLexeme l state@(PictureState stack pic pathStart transforms currentPoint)
   | l == "sub", x1:x2:xs <- stack = Just $ state { stack = x2 - x1 : xs }
   | l == "mul", x1:x2:xs <- stack = Just $ state { stack = x2 * x1 : xs }
   | l == "div", x1:x2:xs <- stack, x1 /= 0 = Just $ state { stack = x2 / x1 : xs }
+  | '+' : num <- l, Just x <- readMaybe num :: Maybe Int = Just $ state {
+    stack = fromIntegral x : stack
+  }
+  | '-' : num <- l, Just x <- readMaybe num :: Maybe Int = Just $ state {
+    stack = -(fromIntegral x) : stack
+  }
   | Just x <- readMaybe l :: Maybe Int = Just $ state { stack = fromIntegral x : stack }
   | otherwise = Nothing
 
@@ -83,7 +89,7 @@ processLexeme l state@(PictureState stack pic pathStart transforms currentPoint)
 getPicture :: IO (Maybe Picture)
 getPicture = parsePicture . words <$> getContents
 
-maybeToEither :: String -> Maybe a -> Either String a
+maybeToEither :: e -> Maybe a -> Either e a
 maybeToEither s Nothing  = Left s
 maybeToEither _ (Just x) = Right x
 

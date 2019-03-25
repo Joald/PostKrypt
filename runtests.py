@@ -1,5 +1,5 @@
 import os
-for i in range(11):
+for i in range(13):
     print("Test", i)
     os.system("stack run < examples/good%s.in > outs/%s.ps" % (str(i).zfill(2), i))
     os.system("diff examples/good%s.ps outs/%s.ps" % (str(i).zfill(2), i))

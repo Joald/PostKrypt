@@ -1,38 +1,34 @@
 {-# LANGUAGE FlexibleInstances    #-}
 
-module Lib
-  ( R
-  , R2
-  , Vec()
-  , Point()
-  , point
-  , vec
-  , Picture(..)
-  , line
-  , rectangle
-  , (&)
-  , IntLine
-  , IntRendering
-  , renderScaled
-  , Transform
-  , translate
-  , rotate
-  , fullCircle
-  , trpoint
-  , trvec
-  , transform
-  -- also export some utils for use in Main
-  , pmap
-  , trR2
-  , Line
-  ) where
+module Lib where
+--  ( R
+--  , R2
+--  , Vec()
+--  , Point()
+--  , point
+--  , vec
+--  , Picture(..)
+--  , line
+--  , rectangle
+--  , (&)
+--  , IntLine
+--  , IntRendering
+--  , renderScaled
+--  , Transform
+--  , translate
+--  , rotate
+--  , fullCircle
+--  , trpoint
+--  , trvec
+--  , transform
+--  -- also export some utils for use in Main
+--  , pmap
+--  , trR2
+--  , Line
+--  ) where
 
 import           Control.Monad
 import           Data.Fixed         (mod')
-import           Data.List.NonEmpty (NonEmpty (..), (<|))
-import qualified Data.List.NonEmpty as NE
-import           GHC.IO             (unsafePerformIO)
-import           GHC.Real
 import           Mon
 import           Prelude            hiding (cos, sin)
 
@@ -41,9 +37,7 @@ type R = Rational
 
 type R2 = (R, R)
 
-newtype Point = Point
-  { getCoords :: R2
-  } deriving (Show, Eq)
+newtype Point = Point { getCoords :: R2 } deriving (Show, Eq)
 
 newtype Vec = Vec
   { getVec :: R2
@@ -104,7 +98,7 @@ applyBoth :: (b -> b -> c) -> (a -> b) -> a -> a -> c
 applyBoth f g x1 x2 = f (g x1) (g x2)
 
 sin :: Rational -> Rational
-sin x' = (4 * x * (180 - x)) / (40500 - x * (180 - x)) * (-signum (x `mod'` 360 - 180))
+sin x' = (4 * x * (180 - x)) / (40500 - x * (180 - x)) * (-signum (x' - 180))
   where
     x = x' `mod'` 180
 
