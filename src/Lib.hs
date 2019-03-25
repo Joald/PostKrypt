@@ -1,5 +1,4 @@
 {-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE TypeSynonymInstances #-}
 
 module Lib
   ( R
@@ -71,9 +70,6 @@ instance Mon Vec where
     where
       (fx, fy) = getVec x
       (sx, sy) = getVec y
-
-(+++) :: NonEmpty a -> [a] -> NonEmpty a
-(x :| xs) +++ y = x :| (xs ++ y)
 
 simplifyTransformList :: [BaseTransform] -> [BaseTransform]
 simplifyTransformList trl

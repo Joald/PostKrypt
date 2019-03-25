@@ -30,16 +30,8 @@ showPicture = concatMap pointToPostScript
 addProEpi :: String -> String
 addProEpi x = prologue ++ x ++ epilogue
 
--- Custom lens implementation
-
---type Lens' a b = forall f . Functor f => (b -> f b) -> (a -> f a)
---x = runQ
-
 -- Functions used by part C
 errorMessage = "/Courier findfont 24 scalefont setfont 0 0 moveto (Error) show\n"
-
-passToAll :: (a -> b -> c -> d -> e -> f) -> f -> (f -> a) -> (f -> b) -> (f -> c) -> (f -> d) -> (f -> e) -> f
-passToAll f st a b c d e = f (a st) (b st) (c st) (d st) (e st)
 
 data PictureState = PictureState
   { stack     :: [R]
@@ -56,7 +48,7 @@ parsePicture :: [String] -> Maybe Picture
 parsePicture l = Picture . reverse . pic <$> foldl (\s el -> s >>= processLexeme el) (Just startState) l
 
 processLexeme :: String -> PictureState -> Maybe PictureState
-processLexeme l state
+processLexeme l state@(PictureState stack pic pathStart transforms currentPoint)
   | l == "moveto", y:x:xs <- stack = Just $ state {
     stack = xs,
     pathStart = Just $ trR2 transforms (x, y),
@@ -86,9 +78,8 @@ processLexeme l state
   | l == "div", x1:x2:xs <- stack, x1 /= 0 = Just $ state { stack = x2 / x1 : xs }
   | Just x <- readMaybe l :: Maybe Int = Just $ state { stack = fromIntegral x : stack }
   | otherwise = Nothing
-  where
-    PictureState stack pic pathStart transforms currentPoint = state
 
+    
 getPicture :: IO (Maybe Picture)
 getPicture = parsePicture . words <$> getContents
 
@@ -105,8 +96,7 @@ main :: IO ()
 main = do
   programName <- getProgName
   args <- getArgs
-  let n
-        | null args = Right 1
+  let n | null args = Right 1
         | length args == 1 = readEither $ head args
         | otherwise = Left $ helpMessage programName
   p <- getPicture
