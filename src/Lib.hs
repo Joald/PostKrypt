@@ -1,36 +1,34 @@
-{-# LANGUAGE FlexibleInstances    #-}
-
-module Lib where
---  ( R
---  , R2
---  , Vec()
---  , Point()
---  , point
---  , vec
---  , Picture(..)
---  , line
---  , rectangle
---  , (&)
---  , IntLine
---  , IntRendering
---  , renderScaled
---  , Transform
---  , translate
---  , rotate
---  , fullCircle
---  , trpoint
---  , trvec
---  , transform
---  -- also export some utils for use in Main
---  , pmap
---  , trR2
---  , Line
---  ) where
+module Lib
+  ( R
+  , R2
+  , Vec()
+  , Point()
+  , point
+  , vec
+  , Picture(..)
+  , line
+  , rectangle
+  , (&)
+  , IntLine
+  , IntRendering
+  , renderScaled
+  , Transform
+  , translate
+  , rotate
+  , fullCircle
+  , trpoint
+  , trvec
+  , transform
+  -- also export some utils for use in Main
+  , pmap
+  , trR2
+  , Line
+  ) where
 
 import           Control.Monad
-import           Data.Fixed         (mod')
+import           Data.Fixed    (mod')
 import           Mon
-import           Prelude            hiding (cos, sin)
+import           Prelude       hiding (cos, sin)
 
 -- | All the type definitions.
 type R = Rational
@@ -74,12 +72,11 @@ simplifyTransformList trl
   | otherwise = trl
 
 fix :: Eq a => (a -> a) -> a -> a
-fix f x =
-  if y == x
-    then y
-    else fix f y
-  where
-    y = f x
+fix f x
+  | y == x = y
+  | otherwise = fix f y
+    where
+      y = f x
 
 instance Mon Transform where
   m1 = Transform []
@@ -97,13 +94,14 @@ pmap f (x, y) = (f x, f y)
 applyBoth :: (b -> b -> c) -> (a -> b) -> a -> a -> c
 applyBoth f g x1 x2 = f (g x1) (g x2)
 
+bhaskara :: Rational -> Rational
+bhaskara x = (4 * x * (180 - x)) / (40500 - x * (180 - x))
+
 sin :: Rational -> Rational
-sin x' = (4 * x * (180 - x)) / (40500 - x * (180 - x)) * (-signum (x' - 180))
-  where
-    x = x' `mod'` 180
+sin x = if x > 180 then -(bhaskara $ x - 180) else bhaskara x
 
 cos :: Rational -> Rational
-cos = sin . (90 +)
+cos = sin . (`mod'` 360) . (90 +)
 
 _doRotate :: R -> R2 -> R2
 _doRotate a ~(x, y) = (x * c - y * s, x * s + y * c)

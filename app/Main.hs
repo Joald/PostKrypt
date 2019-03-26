@@ -34,58 +34,50 @@ addProEpi x = prologue ++ x ++ epilogue
 errorMessage = "/Courier findfont 24 scalefont setfont 0 0 moveto (Error) show\n"
 
 data PictureState = PictureState
-  { stack     :: [R]
-  , pic       :: [Line]
-  , pathStart :: Maybe R2
-  , trans     :: Transform
-  , curPoint  :: Maybe R2
+  { stack    :: [R]
+  , pic      :: [Line]
+  , path     :: [R2]
+  , trans    :: Transform
+  , curPoint :: Maybe R2
   }
 
 startState :: PictureState
-startState = PictureState [] [] Nothing m1 Nothing
+startState = PictureState [] [] [] m1 Nothing
 
 parsePicture :: [String] -> Maybe Picture
 parsePicture l = Picture . reverse . pic <$> foldl (\s el -> s >>= processLexeme el) (Just startState) l
 
 processLexeme :: String -> PictureState -> Maybe PictureState
-processLexeme l state@(PictureState stack pic pathStart transforms currentPoint)
-  | l == "moveto", y:x:xs <- stack = Just $ state {
+processLexeme l state@(PictureState stack pic path transforms currentPoint)
+  | l == "moveto", y:x:xs <- stack = Just state {
     stack = xs,
-    pathStart = Just $ trR2 transforms (x, y),
+    path = [trR2 transforms (x, y)],
     curPoint = Just $ trR2 transforms (x, y)
   }
-  | l == "lineto", y:x:xs <- stack, Just cPoint <- currentPoint = Just $ state {
+  | l == "lineto", y:x:xs <- stack, Just cPoint <- currentPoint = Just state {
     stack = xs,
     pic = (cPoint, trR2 transforms (x, y)) : pic,
-    curPoint = Just $ trR2 transforms (x, y)
+    curPoint = Just $ trR2 transforms (x, y),
+    path = path ++ [(x, y)]
   }
-  | l == "closepath", Just start <- pathStart, Just cPoint <- currentPoint, start /= cPoint = Just $ state {
-    pic = pmap (trR2 transforms) (cPoint, start) : pic,
-    curPoint = Just start
+  | l == "closepath", start : _ : _ <- path, Just cPoint <- currentPoint = Just state {
+    pic = (cPoint, start) : pic,
+    curPoint = Just start,
+    path = path ++ [start]
   }
   | l == "closepath" = Just state
-  | l == "translate", y:x:xs <- stack = Just $ state {
-    stack = xs,
-    trans = translate (vec (x, y)) >< transforms
-  }
-  | l == "rotate", x:xs <- stack = Just $ state {
-    stack = xs,
-    trans = rotate x >< transforms
-  }
-  | l == "add", x1:x2:xs <- stack = Just $ state { stack = x2 + x1 : xs }
-  | l == "sub", x1:x2:xs <- stack = Just $ state { stack = x2 - x1 : xs }
-  | l == "mul", x1:x2:xs <- stack = Just $ state { stack = x2 * x1 : xs }
-  | l == "div", x1:x2:xs <- stack, x1 /= 0 = Just $ state { stack = x2 / x1 : xs }
-  | '+' : num <- l, Just x <- readMaybe num :: Maybe Int = Just $ state {
-    stack = fromIntegral x : stack
-  }
-  | '-' : num <- l, Just x <- readMaybe num :: Maybe Int = Just $ state {
-    stack = -(fromIntegral x) : stack
-  }
-  | Just x <- readMaybe l :: Maybe Int = Just $ state { stack = fromIntegral x : stack }
+  | l == "translate", y:x:xs <- stack = Just state { stack = xs, trans = translate (vec (x, y)) >< transforms }
+  | l == "rotate", x:xs <- stack = Just state { stack = xs, trans = rotate x >< transforms }
+  | l == "add", x1:x2:xs <- stack = Just state { stack = x2 + x1 : xs }
+  | l == "sub", x1:x2:xs <- stack = Just state { stack = x2 - x1 : xs }
+  | l == "mul", x1:x2:xs <- stack = Just state { stack = x2 * x1 : xs }
+  | l == "div", x1:x2:xs <- stack, x1 /= 0 = Just state { stack = x2 / x1 : xs }
+  | '+' : num <- l, Just x <- readMaybe num :: Maybe Int = Just $ state { stack = fromIntegral x : stack }
+  | '-' : num <- l, Just x <- readMaybe num :: Maybe Int = Just $ state { stack = -(fromIntegral x) : stack }
+  | Just x <- readMaybe l :: Maybe Int = Just state { stack = fromIntegral x : stack }
   | otherwise = Nothing
 
-    
+
 getPicture :: IO (Maybe Picture)
 getPicture = parsePicture . words <$> getContents
 
