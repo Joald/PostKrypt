@@ -1,3 +1,4 @@
+-- | Jacek Olczyk 385896
 module Main where
 
 import           Control.Monad

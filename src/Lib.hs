@@ -1,3 +1,4 @@
+-- | Jacek Olczyk 385896
 module Lib
   ( R
   , R2
